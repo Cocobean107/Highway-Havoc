@@ -27,3 +27,83 @@ class FallingObjects:
     def update_fall_speed(self, new_speed):
         """Update the falling speed of the object."""
         self.fall_speed = new_speed
+
+
+
+
+class Car(GameObjects):
+    """Player car class that inherits from GameObjects."""
+    
+    def __init__(self, x, y, width, height, player_id):
+        """Initialize car with position, dimensions, and player ID."""
+        super().__init__(x, y, width, height)
+        self.player_id = player_id
+        self.speed = 0  # Current speed/position relative to center
+        self.base_speed = 0
+        self.color = "blue"  # Default color
+        self.boost_timers = []  # Track active boosts
+        self.spike_timers = []  # Track active slowdowns
+    
+    def move(self, direction):
+        """Move the car left or right within road lanes."""
+        pass
+    
+    def update_speed(self, delta_time):
+        """Update car speed based on active boosts and slowdowns."""
+        pass
+    
+    def flash_white(self):
+        """Flash the car white when collecting a coin."""
+        pass
+
+
+class Coin(GameObjects, FallingObjects):
+    """Collectible coin that increases player speed."""
+    
+    def __init__(self, x, y, width=20, height=20, fall_speed=5):
+        """Initialize coin with position and falling properties."""
+        GameObjects.__init__(self, x, y, width, height)
+        FallingObjects.__init__(self, fall_speed)
+        self.collected = False
+        self.color = "yellow"
+    
+    def collect(self, player):
+        """Handle coin collection by a player."""
+        pass
+    
+    def update_position(self, delta_time):
+        """Update coin position as it falls down the screen."""
+        pass
+
+
+class Spikes(GameObjects, FallingObjects):
+    """Hazardous spikes that decrease player speed."""
+    
+    def __init__(self, x, y, width=25, height=25, fall_speed=5):
+        """Initialize spikes with position and falling properties."""
+        GameObjects.__init__(self, x, y, width, height)
+        FallingObjects.__init__(self, fall_speed)
+        self.hit = False
+        self.color = "green"
+    
+    def collect(self, player):
+        """Handle spike collision with a player (reduces speed)."""
+        pass
+    
+    def update_position(self, delta_time):
+        """Update spike position as it falls down the screen."""
+        pass
+
+
+# Example usage and game state management classes
+class GameState:
+    """Manages overall game state and objects."""
+    
+    def __init__(self):
+        """Initialize game state with players and object lists."""
+        self.player1 = Car(100, 400, 40, 60, 1)
+        self.player2 = Car(200, 400, 40, 60, 2)
+        self.coins = []
+        self.spikes = []
+        self.score_player1 = 0
+        self.score_player2 = 0
