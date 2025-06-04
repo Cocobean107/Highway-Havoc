@@ -1,3 +1,6 @@
+import pygame
+import sys
+
 class GameObjects:
     """Base class for all game objects with drawing and positioning functionality."""
     
@@ -90,20 +93,3 @@ class Spikes(GameObjects, FallingObjects):
         """Handle spike collision with a player (reduces speed)."""
         pass
     
-    def update_position(self, delta_time):
-        """Update spike position as it falls down the screen."""
-        pass
-
-
-# Example usage and game state management classes
-class GameState:
-    """Manages overall game state and objects."""
-    
-    def __init__(self):
-        """Initialize game state with players and object lists."""
-        self.player1 = Car(100, 400, 40, 60, 1)
-        self.player2 = Car(200, 400, 40, 60, 2)
-        self.coins = []
-        self.spikes = []
-        self.score_player1 = 0
-        self.score_player2 = 0
