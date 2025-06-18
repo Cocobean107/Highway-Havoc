@@ -200,8 +200,6 @@ class Coin(GameObject, FallingObjects):
         # Simple base points without combo bonuses
         base_points = 10 if boost_amount == 20 else 5
         game_state.add_score(base_points, self.x, self.y, 'yellow')
-        if coin_sound:
-            coin_sound.play()
         player_car.flash_white()
     
     def update_position(self, delta_time):
@@ -236,8 +234,6 @@ class Spikes(GameObject, FallingObjects):
         # Simple money deduction without combo breaking
         game_state.add_floating_text("-25", self.x, self.y, 'red')
         game_state.money = max(0, game_state.money - 25)
-        if spike_sound:
-            spike_sound.play()
         player_car.flash_red()
     
     def update_position(self, delta_time):
@@ -437,3 +433,126 @@ def start_new_game():
     game_state.current_state = PLAYING_STATE
 
 
+
+# Main game loop
+import asyncio
+import platform
+import random
+import math
+import sys
+
+async def main():
+    global last_spawn_time, road_scroll_offset
+    running = True
+    
+    while running:
+        delta_time = clock.tick(FPS) / 1000.0
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if game_state.current_state == MENU_STATE:
+                    if event.key == pygame.K_SPACE:
+                        start_new_game()
+                elif game_state.current_state == PLAYING_STATE:
+                    if event.key in (pygame.K_a, pygame.K_LEFT):
+                        player_car.move(-1)
+                    elif event.key in (pygame.K_d, pygame.K_RIGHT):
+                        player_car.move(1)
+                elif game_state.current_state == GAME_OVER_STATE:
+                    if event.key == pygame.K_SPACE:
+                        start_new_game()
+                    elif event.key == pygame.K_ESCAPE:
+                        running = False
+        
+        if game_state.current_state == MENU_STATE:
+            draw_start_screen(screen)
+            
+        elif game_state.current_state == PLAYING_STATE:
+            current_time = time.time()
+            speed_multiplier = max(player_car.speed / player_car.base_speed, 0.1) if player_car.speed > 0 else 0.1
+            dynamic_spawn_interval = BASE_SPAWN_INTERVAL / speed_multiplier
+            
+            active_objects = len([obj for obj in coins if not obj.collected]) + len([obj for obj in spikes if not obj.hit])
+            
+            if current_time - last_spawn_time > dynamic_spawn_interval and active_objects < MAX_OBJECTS_ON_SCREEN:
+                max_attempts = 10
+                attempts = 0
+                spawned = False
+                
+                while attempts < max_attempts and not spawned:
+                    lane = random.randint(0, 3)
+                    spawn_x = ROAD_X + lane * LANE_WIDTH + LANE_WIDTH // 2 - 10
+                    spawn_y = -20
+                    all_objects = coins + spikes
+                    if not check_spawn_collision(spawn_x, spawn_y, all_objects):
+                        if random.random() < 0.6:
+                            coins.append(Coin(spawn_x, spawn_y))
+                        else:
+                            spikes.append(Spikes(spawn_x, spawn_y))
+                        spawned = True
+                    attempts += 1
+                last_spawn_time = current_time
+            
+            player_car.update_speed_and_position(delta_time)
+            game_state.total_distance = player_car.distance
+            game_state.update_floating_texts(delta_time)
+            
+            # Check for game over condition
+            if player_car.speed <= 0:
+                game_state.current_state = GAME_OVER_STATE
+            
+            road_scroll_speed = 30 * (player_car.speed / player_car.base_speed) if player_car.speed > 0 else 0
+            road_scroll_offset += road_scroll_speed * delta_time
+            
+            for coin in coins[:]:
+                coin.update_position(delta_time)
+                if (not coin.collected and 
+                    abs(coin.x - player_car.x) < player_car.width and 
+                    abs(coin.y - (player_car.y + player_car.position_offset)) < player_car.height):
+                    coin.collect(player_car, game_state)
+            
+            for spike in spikes[:]:
+                spike.update_position(delta_time)
+                if (not spike.hit and 
+                    abs(spike.x - player_car.x) < player_car.width and 
+                    abs(spike.y - (player_car.y + player_car.position_offset)) < player_car.height):
+                    spike.collect(player_car, game_state)
+            
+            coins[:] = [coin for coin in coins if not coin.collected]
+            spikes[:] = [spike for spike in spikes if not spike.hit]
+            
+            # Draw game
+            screen.fill('black')
+            pygame.draw.rect(screen, 'grey50', (ROAD_X, 0, ROAD_WIDTH, SCREEN_HEIGHT))
+            for i in range(1, 4):
+                pygame.draw.line(screen, 'white', (ROAD_X + i * LANE_WIDTH, 0), 
+                               (ROAD_X + i * LANE_WIDTH, SCREEN_HEIGHT), 2)
+            marking_spacing = 100
+            marking_offset = int(road_scroll_offset) % marking_spacing
+            for y in range(-marking_spacing + marking_offset, SCREEN_HEIGHT + marking_spacing, marking_spacing):
+                pygame.draw.rect(screen, 'white', (ROAD_X + ROAD_WIDTH // 2 - 5, y, 10, 40))
+            
+            for coin in coins:
+                coin.draw(screen)
+            for spike in spikes:
+                spike.draw(screen)
+            
+            player_car.draw(screen)
+            draw_ui(screen)
+            draw_floating_texts(screen)
+            
+        elif game_state.current_state == GAME_OVER_STATE:
+            draw_game_over_screen(screen, game_state)
+        
+        pygame.display.flip()
+        await asyncio.sleep(1.0 / FPS)
+
+if platform.system() == "Emscripten":
+    asyncio.ensure_future(main())
+else:
+    if __name__ == "__main__":
+        asyncio.run(main())
+
+pygame.quit()
