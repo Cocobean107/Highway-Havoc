@@ -130,29 +130,40 @@ class Car(GameObject):
         self.speed = self.base_speed
         self.position_offset = 0
         
+        # Gradual position offset for boost and spike effects
         for boost in self.boost_timers[:]:
             t = current_time - boost['start_time']
             if t < 3:
                 self.speed += boost['amount']
-                self.position_offset -= boost['amount'] * 2
+                # Smoothly interpolate position offset (ease out)
+                boost_progress = t / 3
+                offset = -boost['amount'] * 10 * (1 - (boost_progress ** 2))
+                self.position_offset += offset * delta_time
             elif t < 7:
                 progress = (t - 3) / 4
                 remaining_boost = boost['amount'] * (1 - progress)
                 self.speed += remaining_boost
-                self.position_offset -= remaining_boost * 2
+                # Smoothly interpolate position offset (ease in)
+                offset = -remaining_boost * 5 * (1 - ((1 - progress) ** 2))
+                self.position_offset += offset * delta_time
             else:
                 self.boost_timers.remove(boost)
-        
+
         for spike in self.spike_timers[:]:
             t = current_time - spike['start_time']
             if t < 2:
                 self.speed -= spike['amount']
-                self.position_offset += spike['amount'] * 2
+                # Smoothly interpolate position offset (ease out)
+                spike_progress = t / 2
+                offset = spike['amount'] * 10 * (1 - (spike_progress ** 2))
+                self.position_offset += offset * delta_time
             elif t < 6:
                 progress = (t - 2) / 4
                 remaining_slowdown = spike['amount'] * (1 - progress)
                 self.speed -= remaining_slowdown
-                self.position_offset += remaining_slowdown * 2
+                # Smoothly interpolate position offset (ease in)
+                offset = remaining_slowdown * 5 * (1 - ((1 - progress) ** 2))
+                self.position_offset += offset * delta_time
             else:
                 self.spike_timers.remove(spike)
         
@@ -216,7 +227,7 @@ class Spikes(GameObject, FallingObjects):
         GameObject.__init__(self, x, y, width, height)
         FallingObjects.__init__(self, 5)
         self.hit = False
-        self.color = 'green'
+        self.color = 'purple'
     
     def collect(self, player_car, game_state):
         if self.hit:
@@ -414,7 +425,7 @@ def draw_floating_texts(screen):
 
 def check_spawn_collision(new_x, new_y, existing_objects):
     import math
-    collision_radius = 40
+    collision_radius = 10
     for obj in existing_objects:
         if not (hasattr(obj, 'collected') and obj.collected) and not (hasattr(obj, 'hit') and obj.hit):
             distance = math.sqrt((new_x - obj.x)**2 + (new_y - obj.y)**2)
@@ -441,9 +452,15 @@ import random
 import math
 import sys
 
+coin_sound = pygame.mixer.Sound("coinsound.wav")
+spike_sound = pygame.mixer.Sound("spikesound.wav")
+background_music = pygame.mixer.Sound('f1v8.mp3')
+
 async def main():
     global last_spawn_time, road_scroll_offset
     running = True
+    background_music.play()
+
     
     while running:
         delta_time = clock.tick(FPS) / 1000.0
@@ -512,6 +529,7 @@ async def main():
                     abs(coin.x - player_car.x) < player_car.width and 
                     abs(coin.y - (player_car.y + player_car.position_offset)) < player_car.height):
                     coin.collect(player_car, game_state)
+                    coin_sound.play()  # <-- Play sound when coin is collected
             
             for spike in spikes[:]:
                 spike.update_position(delta_time)
@@ -519,6 +537,7 @@ async def main():
                     abs(spike.x - player_car.x) < player_car.width and 
                     abs(spike.y - (player_car.y + player_car.position_offset)) < player_car.height):
                     spike.collect(player_car, game_state)
+                    spike_sound.play()
             
             coins[:] = [coin for coin in coins if not coin.collected]
             spikes[:] = [spike for spike in spikes if not spike.hit]
